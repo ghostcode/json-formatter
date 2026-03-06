@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON Formatter - 格式化与转义工具</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-elevated: #12121a;
+      --bg-card: #16161f;
+      --fg: #e8e8ed;
+      --muted: #6b6b7a;
+      --accent: #00d992;
+      --accent-dim: rgba(0, 217, 146, 0.15);
+      --warning: #ff6b4a;
+      --warning-dim: rgba(255, 107, 74, 0.15);
+      --info: #4a9eff;
+      --info-dim: rgba(74, 158, 255, 0.15);
+      --border: #2a2a3a;
+      --glow: rgba(0, 217, 146, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 217, 146, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 217, 146, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-glow {
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.25;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-glow-1 {
+      top: -200px;
+      left: -100px;
+      background: var(--accent);
+      animation: float 20s ease-in-out infinite;
+    }
+
+    .bg-glow-2 {
+      bottom: -200px;
+      right: -100px;
+      background: #6366f1;
+      animation: float 25s ease-in-out infinite reverse;
+    }
+
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translate(0, 0) scale(1);
+      }
+
+      33% {
+        transform: translate(30px, -30px) scale(1.1);
+      }
+
+      66% {
+        transform: translate(-20px, 20px) scale(0.9);
+      }
+    }
+
+    .editor-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .editor-panel:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .editor-header {
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+
+    .status-dot.success {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--glow);
+    }
+
+    .status-dot.error {
+      background: var(--warning);
+      box-shadow: 0 0 8px var(--warning-dim);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 260px;
+      background: transparent;
+      border: none;
+      resize: vertical;
+      padding: 16px;
+      color: var(--fg);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      outline: none;
+    }
+
+    textarea::placeholder {
+      color: var(--muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover::before {
+      opacity: 1;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--glow);
+    }
+
+    .btn-secondary {
+      background: var(--bg-elevated);
+      color: var(--fg);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-info {
+      background: var(--info);
+      color: #fff;
+    }
+
+    .btn-info:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(74, 158, 255, 0.4);
+    }
+
+    .btn-icon {
+      padding: 8px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      color: var(--fg);
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-icon svg {
+      transition: transform 0.2s;
+    }
+
+    .btn-icon:hover svg {
+      transform: scale(1.1);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      border-color: var(--accent);
+    }
+
+    .toast.error {
+      border-color: var(--warning);
+    }
+
+    .error-msg {
+      background: var(--warning-dim);
+      border: 1px solid var(--warning);
+      color: var(--warning);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: none;
+      animation: shake 0.4s ease-out;
+    }
+
+    .error-msg.show {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      20% {
+        transform: translateX(-8px);
+      }
+
+      40% {
+        transform: translateX(8px);
+      }
+
+      60% {
+        transform: translateX(-4px);
+      }
+
+      80% {
+        transform: translateX(4px);
+      }
+    }
+
+    .option-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-track {
+      width: 40px;
+      height: 22px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      position: relative;
+      transition: all 0.3s;
+    }
+
+    .toggle-thumb {
+      width: 16px;
+      height: 16px;
+      background: var(--muted);
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: all 0.3s;
+    }
+
+    .option-toggle input:checked+.toggle-track {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+    }
+
+    .option-toggle input:checked+.toggle-track .toggle-thumb {
+      left: 20px;
+      background: var(--accent);
+    }
+
+    .option-toggle input {
+      display: none;
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.6s ease-out forwards;
+    }
+
+    @keyframes fadeUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .delay-1 {
+      animation-delay: 0.1s;
+    }
+
+    .delay-2 {
+      animation-delay: 0.2s;
+    }
+
+    .delay-3 {
+      animation-delay: 0.3s;
+    }
+
+    @keyframes pulse-success {
+      0% {
+        box-shadow: 0 0 0 0 var(--glow);
+      }
+
+      70% {
+        box-shadow: 0 0 0 10px transparent;
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 transparent;
+      }
+    }
+
+    .pulse-success {
+      animation: pulse-success 0.6s ease-out;
+    }
+
+    /* Tabs */
+    .tab-container {
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 4px;
+      display: inline-flex;
+      gap: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: var(--fg);
+      background: var(--bg-elevated);
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Convert card */
+    .convert-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+
+    .convert-card:hover {
+      border-color: var(--accent);
+    }
+
+    .convert-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .convert-icon.green {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .convert-icon.blue {
+      background: var(--info-dim);
+      color: var(--info);
+    }
+
+    /* Process steps */
+    .process-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg-elevated);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      transition: all 0.3s;
+    }
+
+    .process-step.active {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .process-step .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .process-step.active .step-num {
+      background: var(--accent);
+      color: #000;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    @media (max-width: 768px) {
+      textarea {
+        min-height: 180px;
+        font-size: 12px;
+      }
+
+      .btn {
+        padding: 10px 16px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="relative z-10 min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Header -->
+      <header class="text-center mb-6 md:mb-10 fade-up">
+        <h1 class="text-3xl md:text-5xl font-bold mb-3 tracking-tight">
+          JSON <span style="color: var(--accent)">Formatter</span>
+        </h1>
+        <p class="text-base md:text-lg" style="color: var(--muted)">
+          格式化、压缩、转义转换，一站式 JSON 处理工具
+        </p>
+      </header>
+
+      <!-- Tabs -->
+      <div class="flex justify-center mb-6 fade-up delay-1">
+        <div class="tab-container">
+          <button class="tab-btn active" data-tab="format">格式化</button>
+          <button class="tab-btn" data-tab="escape">转义转换</button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Format -->
+      <div class="tab-content active" id="tab-format">
+        <!-- Options -->
+        <div class="flex flex-wrap justify-center gap-4 md:gap-6 mb-6 fade-up delay-1">
+          <label class="option-toggle">
+            <input type="checkbox" id="autoFix" checked>
+            <div class="toggle-track">
+              <div class="toggle-thumb"></div>
+            </div>
+            <span class="text-sm">自动修复</span>
+          </label>
+          <label class="option-toggle">
+            <input type="checkbox" id="indent2">
+            <div class="toggle-track">
+              <div class="toggle-thumb"></div>
+            </div>
+            <span class="text-sm">2空格缩进</span>
+          </label>
+          <label class="option-toggle">
+            <input type="checkbox" id="sortKeys">
+            <div class="toggle-track">
+              <div class="toggle-thumb"></div>
+            </div>
+            <span class="text-sm">排序键名</span>
+          </label>
+        </div>
+
+        <!-- Editors -->
+        <div class="grid md:grid-cols-2 gap-4 md:gap-6 mb-6 fade-up delay-2">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium" style="color: var(--muted)">输入</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs" style="color: var(--muted)" id="inputStatus">等待输入...</span>
+                <div class="status-dot" id="inputDot"></div>
+              </div>
+            </div>
+            <div class="editor-panel">
+              <div class="editor-header">
+                <span class="text-sm font-medium">非标准 JSON</span>
+                <div class="flex gap-1">
+                  <button class="btn-icon" onclick="pasteFromClipboard('input')" title="粘贴">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                    </svg>
+                  </button>
+                  <button class="btn-icon" onclick="clearAll()" title="清空">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <textarea id="input" placeholder="// 粘贴你的 JSON 数据...&#10;// 支持单引号、无引号键名、尾随逗号、注释等"
+                spellcheck="false"></textarea>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium" style="color: var(--muted)">输出</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs" style="color: var(--muted)" id="outputStatus">等待格式化</span>
+                <div class="status-dot" id="outputDot"></div>
+              </div>
+            </div>
+            <div class="editor-panel">
+              <div class="editor-header">
+                <span class="text-sm font-medium">标准 JSON</span>
+                <div class="flex gap-1">
+                  <button class="btn-icon" onclick="copyToClipboard('output')" title="复制">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  </button>
+                  <button class="btn-icon" onclick="downloadFile('output')" title="下载">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <textarea id="output" placeholder="// 格式化后的标准 JSON 将显示在这里..." readonly spellcheck="false"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error message -->
+        <div class="error-msg mb-6 fade-up delay-2" id="errorMsg">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span id="errorText"></span>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-wrap justify-center gap-3 fade-up delay-3">
+          <button class="btn btn-primary" onclick="formatJSON()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 3v18M3 12h18" />
+            </svg>
+            格式化
+          </button>
+          <button class="btn btn-secondary" onclick="minifyJSON()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+            </svg>
+            压缩
+          </button>
+          <button class="btn btn-secondary" onclick="loadSample()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            示例
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 2: Escape Convert -->
+      <div class="tab-content" id="tab-escape">
+        <!-- Escape editors -->
+        <div class="grid md:grid-cols-2 gap-4 md:gap-6 mb-6 fade-up delay-2">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium" style="color: var(--muted)">输入</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs" style="color: var(--muted)" id="escapeInputStatus">等待输入...</span>
+                <div class="status-dot" id="escapeInputDot"></div>
+              </div>
+            </div>
+            <div class="editor-panel">
+              <div class="editor-header">
+                <span class="text-sm font-medium">JSON 或 转义字符串</span>
+                <div class="flex gap-1">
+                  <button class="btn-icon" onclick="pasteFromClipboard('escapeInput')" title="粘贴">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                    </svg>
+                  </button>
+                  <button class="btn-icon" onclick="clearEscape()" title="清空">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <textarea id="escapeInput"
+                placeholder='// 输入 JSON 或转义字符串&#10;// 例如: {name: "张三"}&#10;// 或: "{\"name\": \"张三\"}"'
+                spellcheck="false"></textarea>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium" style="color: var(--muted)">输出</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs" style="color: var(--muted)" id="escapeOutputStatus">等待转换</span>
+                <div class="status-dot" id="escapeOutputDot"></div>
+              </div>
+            </div>
+            <div class="editor-panel">
+              <div class="editor-header">
+                <span class="text-sm font-medium">转换结果</span>
+                <div class="flex gap-1">
+                  <button class="btn-icon" onclick="copyToClipboard('escapeOutput')" title="复制">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  </button>
+                  <button class="btn-icon" onclick="downloadFile('escapeOutput')" title="下载">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <textarea id="escapeOutput" placeholder="// 转换结果将显示在这里..." readonly spellcheck="false"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Escape Error message -->
+        <div class="error-msg mb-6 fade-up delay-2" id="escapeErrorMsg">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span id="escapeErrorText"></span>
+        </div>
+
+        <!-- Escape Actions -->
+        <div class="flex flex-wrap justify-center gap-3 mb-8 fade-up delay-3">
+          <button class="btn btn-primary" onclick="toEscapedString()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            </svg>
+            转为转义字符串
+          </button>
+          <button class="btn btn-info" onclick="fromEscapedString()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            解析转义字符串
+          </button>
+          <button class="btn btn-secondary" onclick="loadEscapeSample()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            示例
+          </button>
+        </div>
+
+        <!-- Process Steps -->
+        <div class="max-w-2xl mx-auto mb-8 fade-up delay-3">
+          <h3 class="text-sm font-medium mb-3" style="color: var(--muted);">处理流程</h3>
+          <div class="process-step" id="step1">
+            <div class="step-num">1</div>
+            <div>
+              <div class="font-medium">识别并解包</div>
+              <div style="color: var(--muted);">检测是否为字符串包裹，提取内部 JSON</div>
+            </div>
+          </div>
+          <div class="process-step" id="step2">
+            <div class="step-num">2</div>
+            <div>
+              <div class="font-medium">修复非标准格式</div>
+              <div style="color: var(--muted);">单引号转双引号、键名加引号、移除尾随逗号</div>
+            </div>
+          </div>
+          <div class="process-step" id="step3">
+            <div class="step-num">3</div>
+            <div>
+              <div class="font-medium">生成转义字符串</div>
+              <div style="color: var(--muted);">将标准 JSON 转换为带转义字符的字符串</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature cards -->
+        <div class="grid md:grid-cols-2 gap-4 max-w-3xl mx-auto fade-up delay-3">
+          <div class="convert-card">
+            <div class="convert-icon green">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+              </svg>
+            </div>
+            <h3 class="font-semibold mb-2">转为转义字符串</h3>
+            <p class="text-sm" style="color: var(--muted)">
+              支持非标准JSON字符串输入，自动识别并修复格式后转义。
+            </p>
+            <div class="mt-3 p-3 rounded-lg font-mono text-xs" style="background: var(--bg-elevated);">
+              <div style="color: var(--muted);">输入 (非标准字符串):</div>
+              <div class="my-1">"{a:1,b:2}"</div>
+              <div style="color: var(--muted);">输出 (标准转义):</div>
+              <div style="color: var(--accent);">"{\"a\":1,\"b\":2}"</div>
+            </div>
+          </div>
+
+          <div class="convert-card">
+            <div class="convert-icon blue">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </div>
+            <h3 class="font-semibold mb-2">解析转义字符串</h3>
+            <p class="text-sm" style="color: var(--muted)">
+              将转义后的 JSON 字符串还原为格式化的标准 JSON 对象。
+            </p>
+            <div class="mt-3 p-3 rounded-lg font-mono text-xs" style="background: var(--bg-elevated);">
+              <div style="color: var(--muted);">输入:</div>
+              <div class="my-1">"{\"name\": \"张三\"}"</div>
+              <div style="color: var(--muted);">输出:</div>
+              <div style="color: var(--info);">{
+                "name": "张三"
+                }</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="mt-8 flex justify-center gap-6 text-sm fade-up delay-3" style="color: var(--muted)">
+        <div>输入: <span id="inputSize" style="color: var(--fg)">0</span> 字符</div>
+        <div>输出: <span id="outputSize" style="color: var(--fg)">0</span> 字符</div>
+        <div>行数: <span id="lineCount" style="color: var(--fg)">0</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="toastIcon">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+    <span id="toastText">已复制到剪贴板</span>
+  </div>
+
+  <script>
+    // DOM elements - initialized first
+    const inputEl = document.getElementById('input');
+    const outputEl = document.getElementById('output');
+    const escapeInputEl = document.getElementById('escapeInput');
+    const escapeOutputEl = document.getElementById('escapeOutput');
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+
+        // Reset process steps
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step3').classList.remove('active');
+
+        updateStats();
+      });
+    });
+
+    // Fix non-standard JSON - Enhanced version
+    function fixJSON(str) {
+      let result = str;
+
+      // Remove JavaScript-style single-line comments
+      result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+      result = result.replace(/\/\/.*$/gm, '');
+
+      // Remove trailing commas before } or ]
+      result = result.replace(/,(\s*[}\]])/g, '$1');
+
+      // Convert single quotes to double quotes (simple approach)
+      result = result.replace(/'/g, '"');
+
+      // Add quotes to unquoted keys
+      result = result.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)(\s*:)/g, '$1"$2"$3');
+
+      // Fix undefined -> null
+      result = result.replace(/:\s*undefined\b/g, ': null');
+
+      // Fix NaN -> null
+      result = result.replace(/:\s*NaN\b/g, ': null');
+
+      // Fix Infinity -> null
+      result = result.replace(/:\s*Infinity\b/g, ': null');
+
+      return result;
+    }
+
+    // Sort object keys recursively
+    function sortObjectKeys(obj) {
+      if (typeof obj !== 'object' || obj === null) return obj;
+
+      if (Array.isArray(obj)) return obj.map(sortObjectKeys);
+
+      const sorted = {};
+      Object.keys(obj).sort().forEach(key => {
+        sorted[key] = sortObjectKeys(obj[key]);
+      });
+
+      return sorted;
+    }
+
+    // Format JSON
+    function formatJSON() {
+      const input = inputEl.value.trim();
+
+      if (!input) {
+        showError('errorMsg', 'errorText', '请输入 JSON 数据');
+        return;
+      }
+
+      try {
+        const fixed = fixJSON(input);
+        let parsed = JSON.parse(fixed);
+
+        const sortKeysEl = document.getElementById('sortKeys');
+        if (sortKeysEl && sortKeysEl.checked) {
+          parsed = sortObjectKeys(parsed);
+        }
+
+        const indent2El = document.getElementById('indent2');
+        const indent = indent2El && indent2El.checked ? 2 : 4;
+        const formatted = JSON.stringify(parsed, null, indent);
+
+        outputEl.value = formatted;
+
+        hideError('errorMsg');
+        updateStats();
+        setStatus('input', 'success', '解析成功');
+        setStatus('output', 'success', '格式化完成');
+
+        outputEl.parentElement.classList.add('pulse-success');
+        setTimeout(() => outputEl.parentElement.classList.remove('pulse-success'), 600);
+
+        showToast('格式化成功', 'success');
+
+      } catch (e) {
+        showError('errorMsg', 'errorText', 'JSON 解析错误: ' + e.message);
+        setStatus('input', 'error', '解析失败');
+        setStatus('output', '', '格式化失败');
+      }
+    }
+
+    // Minify JSON
+    function minifyJSON() {
+      const input = inputEl.value.trim();
+
+      if (!input) {
+        showError('errorMsg', 'errorText', '请输入 JSON 数据');
+        return;
+      }
+
+      try {
+        const fixed = fixJSON(input);
+        let parsed = JSON.parse(fixed);
+
+        const sortKeysEl = document.getElementById('sortKeys');
+        if (sortKeysEl && sortKeysEl.checked) {
+          parsed = sortObjectKeys(parsed);
+        }
+
+        const minified = JSON.stringify(parsed);
+        outputEl.value = minified;
+
+        hideError('errorMsg');
+        updateStats();
+        setStatus('input', 'success', '解析成功');
+        setStatus('output', 'success', '已压缩');
+
+        showToast('压缩成功', 'success');
+
+      } catch (e) {
+        showError('errorMsg', 'errorText', 'JSON 解析错误: ' + e.message);
+        setStatus('input', 'error', '解析失败');
+      }
+    }
+
+    // To Escaped String - Fixed logic
+    function toEscapedString() {
+      const input = escapeInputEl.value.trim();
+
+      if (!input) {
+        showError('escapeErrorMsg', 'escapeErrorText', '请输入 JSON 数据');
+        return;
+      }
+
+      let jsonValue = null;
+
+      try {
+        // Step 1: Try to parse directly (handles standard JSON and string-wrapped JSON)
+        document.getElementById('step1').classList.add('active');
+
+        try {
+          jsonValue = JSON.parse(input);
+        } catch (e) {
+          // Direct parse failed, input is non-standard
+          jsonValue = null;
+        }
+
+        // If parsed value is a string, it might be a stringified JSON
+        if (jsonValue !== null && typeof jsonValue === 'string') {
+          // Try to parse the inner string
+          const innerString = jsonValue;
+          document.getElementById('step2').classList.add('active');
+
+          try {
+            jsonValue = JSON.parse(innerString);
+          } catch (e) {
+            // Inner string is non-standard, try to fix it
+            const fixedInner = fixJSON(innerString);
+            jsonValue = JSON.parse(fixedInner);
+          }
+        }
+        // If parsed value is an object/array, we're good
+        else if (jsonValue !== null && typeof jsonValue === 'object') {
+          document.getElementById('step2').classList.add('active');
+        }
+        // If direct parse failed completely
+        else if (jsonValue === null) {
+          document.getElementById('step2').classList.add('active');
+
+          // Check if it's a single-quoted wrapped string like '{a:1}'
+          if ((input.startsWith("'") && input.endsWith("'")) ||
+            (input.startsWith('"') && input.endsWith('"'))) {
+            // Remove outer quotes and process content
+            const unwrapped = input.slice(1, -1);
+            const fixed = fixJSON(unwrapped);
+            jsonValue = JSON.parse(fixed);
+          } else {
+            // It's a raw non-standard JSON object
+            const fixed = fixJSON(input);
+            jsonValue = JSON.parse(fixed);
+          }
+        }
+
+        // Step 3: Convert to escaped string
+        document.getElementById('step3').classList.add('active');
+
+        const jsonString = JSON.stringify(jsonValue);
+        const escapedString = JSON.stringify(jsonString);
+
+        escapeOutputEl.value = escapedString;
+
+        hideError('escapeErrorMsg');
+        updateStats();
+        setEscapeStatus('success', '转换成功');
+
+        escapeOutputEl.parentElement.classList.add('pulse-success');
+        setTimeout(() => escapeOutputEl.parentElement.classList.remove('pulse-success'), 600);
+
+        showToast('已转为转义字符串', 'success');
+
+      } catch (e) {
+        showError('escapeErrorMsg', 'escapeErrorText', '转换失败: ' + e.message);
+        setEscapeStatus('error', '转换失败');
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step3').classList.remove('active');
+      }
+    }
+
+    // From Escaped String (Escaped String -> JSON)
+    function fromEscapedString() {
+      const input = escapeInputEl.value.trim();
+
+      if (!input) {
+        showError('escapeErrorMsg', 'escapeErrorText', '请输入转义字符串');
+        return;
+      }
+
+      try {
+        document.getElementById('step1').classList.add('active');
+
+        // Parse the escaped string
+        let parsed = JSON.parse(input);
+
+        document.getElementById('step2').classList.add('active');
+
+        // If result is still a string, parse again
+        if (typeof parsed === 'string') {
+          try {
+            parsed = JSON.parse(parsed);
+          } catch (e) {
+            // If it's not valid JSON, just show the unescaped string
+            escapeOutputEl.value = parsed;
+            hideError('escapeErrorMsg');
+            updateStats();
+            setEscapeStatus('success', '已解析字符串');
+            showToast('解析成功', 'success');
+            return;
+          }
+        }
+
+        document.getElementById('step3').classList.add('active');
+
+        // Format the result
+        const formatted = JSON.stringify(parsed, null, 2);
+        escapeOutputEl.value = formatted;
+
+        hideError('escapeErrorMsg');
+        updateStats();
+        setEscapeStatus('success', '解析成功');
+
+        escapeOutputEl.parentElement.classList.add('pulse-success');
+        setTimeout(() => escapeOutputEl.parentElement.classList.remove('pulse-success'), 600);
+
+        showToast('已解析为 JSON', 'success');
+
+      } catch (e) {
+        showError('escapeErrorMsg', 'escapeErrorText', '解析失败: 请确保输入的是有效的 JSON 字符串');
+        setEscapeStatus('error', '解析失败');
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step3').classList.remove('active');
+      }
+    }
+
+    // Copy to clipboard
+    async function copyToClipboard(targetId) {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+
+      const text = el.value;
+
+      if (!text) {
+        showToast('没有可复制的内容', 'error');
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('已复制到剪贴板', 'success');
+      } catch (e) {
+        showToast('复制失败', 'error');
+      }
+    }
+
+    // Paste from clipboard
+    async function pasteFromClipboard(targetId) {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+
+      try {
+        const text = await navigator.clipboard.readText();
+        el.value = text;
+        updateStats();
+        showToast('已粘贴', 'success');
+      } catch (e) {
+        showToast('粘贴失败', 'error');
+      }
+    }
+
+    // Clear all
+    function clearAll() {
+      inputEl.value = '';
+      outputEl.value = '';
+      hideError('errorMsg');
+      updateStats();
+      setStatus('input', '', '等待输入...');
+      setStatus('output', '', '等待格式化');
+    }
+
+    // Clear escape
+    function clearEscape() {
+      escapeInputEl.value = '';
+      escapeOutputEl.value = '';
+      hideError('escapeErrorMsg');
+      updateStats();
+      setEscapeStatus('', '等待输入...');
+      document.getElementById('step1').classList.remove('active');
+      document.getElementById('step2').classList.remove('active');
+      document.getElementById('step3').classList.remove('active');
+    }
+
+    // Download file
+    function downloadFile(targetId) {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+
+      const content = el.value;
+
+      if (!content) {
+        showToast('没有可下载的内容', 'error');
+        return;
+      }
+
+      const blob = new Blob([content], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'output.json';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showToast('下载已开始', 'success');
+    }
+
+    // Load sample
+    function loadSample() {
+      const sample = `{
+  // 用户配置信息
+  name: '张三',
+  age: 28,
+  isActive: true,
+  hobbies: [
+    '编程',
+    '阅读',
+    '游戏',
+  ],
+  address: {
+    city: '北京',
+    'zip-code': '100000',
+  },
+  skills: ['JavaScript', 'Python', 'Go',],
+}`;
+
+      inputEl.value = sample;
+      updateStats();
+      setStatus('input', '', '示例已加载');
+      showToast('示例已加载', 'success');
+    }
+
+    // Load escape sample
+    function loadEscapeSample() {
+      const sample = `"{a:1,b:2}"`;
+
+      escapeInputEl.value = sample;
+      escapeOutputEl.value = '';
+      updateStats();
+      setEscapeStatus('', '示例已加载');
+      document.getElementById('step1').classList.remove('active');
+      document.getElementById('step2').classList.remove('active');
+      document.getElementById('step3').classList.remove('active');
+      showToast('示例已加载（非标准JSON字符串）', 'success');
+    }
+
+    // Set status for format tab
+    function setStatus(type, status, text) {
+      const dot = document.getElementById(type + 'Dot');
+      const statusText = document.getElementById(type + 'Status');
+
+      if (dot) {
+        dot.className = 'status-dot ' + status;
+      }
+      if (statusText) {
+        statusText.textContent = text;
+      }
+    }
+
+    // Set status for escape tab
+    function setEscapeStatus(status, text) {
+      const inputDot = document.getElementById('escapeInputDot');
+      const outputDot = document.getElementById('escapeOutputDot');
+      const outputStatus = document.getElementById('escapeOutputStatus');
+
+      if (inputDot) inputDot.className = 'status-dot ' + status;
+      if (outputDot) outputDot.className = 'status-dot ' + status;
+      if (outputStatus) outputStatus.textContent = text;
+    }
+
+    // Show/hide error
+    function showError(msgId, textId, msg) {
+      const errorMsg = document.getElementById(msgId);
+      const errorText = document.getElementById(textId);
+
+      if (errorText) errorText.textContent = msg;
+      if (errorMsg) errorMsg.classList.add('show');
+    }
+
+    function hideError(msgId) {
+      const errorMsg = document.getElementById(msgId);
+      if (errorMsg) errorMsg.classList.remove('show');
+    }
+
+    // Update stats
+    function updateStats() {
+      const activeTab = document.querySelector('.tab-btn.active');
+      const tab = activeTab ? activeTab.dataset.tab : 'format';
+
+      const inputSizeEl = document.getElementById('inputSize');
+      const outputSizeEl = document.getElementById('outputSize');
+      const lineCountEl = document.getElementById('lineCount');
+
+      if (!inputSizeEl || !outputSizeEl || !lineCountEl) return;
+
+      if (tab === 'format') {
+        inputSizeEl.textContent = inputEl.value.length;
+        outputSizeEl.textContent = outputEl.value.length;
+        lineCountEl.textContent = outputEl.value.split('\n').length;
+      } else {
+        inputSizeEl.textContent = escapeInputEl.value.length;
+        outputSizeEl.textContent = escapeOutputEl.value.length;
+        lineCountEl.textContent = escapeOutputEl.value.split('\n').length;
+      }
+    }
+
+    // Toast notification
+    function showToast(message, type) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toastText');
+      const toastIcon = document.getElementById('toastIcon');
+
+      if (!toast || !toastText || !toastIcon) return;
+
+      toastText.textContent = message;
+      toast.className = 'toast ' + type;
+
+      if (type === 'success') {
+        toastIcon.innerHTML = '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>';
+      } else {
+        toastIcon.innerHTML = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+      }
+
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // Event listeners
+    inputEl.addEventListener('input', () => {
+      updateStats();
+      if (inputEl.value.trim()) {
+        setStatus('input', '', '输入中...');
+      }
+    });
+
+    escapeInputEl.addEventListener('input', () => {
+      updateStats();
+      setEscapeStatus('', '输入中...');
+      document.getElementById('step1').classList.remove('active');
+      document.getElementById('step2').classList.remove('active');
+      document.getElementById('step3').classList.remove('active');
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        const activeTab = document.querySelector('.tab-btn.active');
+        if (activeTab) {
+          if (activeTab.dataset.tab === 'format') {
+            formatJSON();
+          } else {
+            toEscapedString();
+          }
+        }
+      }
+    });
+
+    // Initialize
+    updateStats();
+  </script>
+</body>
+
+</html>
